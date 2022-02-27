@@ -3,6 +3,7 @@ import math as maths
 import random
 import sys
 import json
+import time
 
 import pygame
 import pygame.joystick
@@ -54,8 +55,11 @@ boosterpng2 = pygame.transform.smoothscale(pygame.image.load("files/flame2.png")
 boosterpng3 = pygame.transform.smoothscale(pygame.image.load('files/flame3.png').convert_alpha(), (flameSize))
 boosterpng4 = pygame.transform.smoothscale(pygame.image.load('files/flame4.png').convert_alpha(), (flameSize))
 boosterpng5 = pygame.transform.smoothscale(pygame.image.load('files/flame5.png').convert_alpha(), (flameSize))
-torchpng = pygame.transform.smoothscale(pygame.image.load("files/blurred torch.png").convert_alpha(),
-                                        (600 * MULTIPLIER, 1200 * MULTIPLIER))
+torchpng = pygame.transform.smoothscale(pygame.image.load("files/new torch.png").convert_alpha(),
+                                        (600 * MULTIPLIER, 3000 * MULTIPLIER))
+background = pygame.transform.smoothscale(pygame.image.load('files/background.png').convert_alpha(), (1920 * MULTIPLIER, 1080 * MULTIPLIER))
+planet = pygame.transform.smoothscale(pygame.image.load('files/planet.png').convert_alpha(), (600 * MULTIPLIER, 600 * MULTIPLIER))
+starscape = pygame.transform.smoothscale(pygame.image.load('files/starscape.png').convert_alpha(), (2732 * MULTIPLIER, 2048 * MULTIPLIER))
 
 # font = pygame.font.Font('files/vgafix.fon', 36 * MULTIPLIER)
 # bold_font = pygame.font.Font('files/vgafix.fon', 45 * MULTIPLIER)
@@ -71,6 +75,7 @@ LIGHT_GREY = pygame.Color(200, 200, 200, 255)
 DARK_GREY = pygame.Color(50, 50, 50, 255)
 PURPLE = pygame.Color(255, 0, 255, 255)
 SEMIBLUE = pygame.Color(0, 0, 255, 225)
+ck = 1273333
 
 run = False
 finish = False
@@ -92,6 +97,8 @@ asteroidCount = 2
 startscreen = 1
 inputType = 1
 nextBullet = 60
+planet_pos = pygame.math.Vector2(500, 500)
+starscape_pos = pygame.math.Vector2(WIDTH // 2, HEIGHT // 2)
 
 AsteroidNames = ["callisto", "io", "iapetus", "europa", "ganymede", "titan", "himalia", "lysithea", "valetudo",
                  "euanthe", "amalthea", "adastrea", "ananke", "pasiphae", "metis", "elara", "carme", "thebe",
@@ -212,7 +219,8 @@ def randomscalar(lower, upper, step):
     return numa
 
 
-def randompos():
+# random position away from player
+def random_corner_pos():
     top_side = random.randint(50, 250)
     bottom_side = random.randint(750, 950)
 
@@ -231,6 +239,29 @@ def randompos():
         pos = pygame.math.Vector2(right_side, bottom_side)
 
     return pos
+
+
+# actual random pos anywehre on the screen
+def randompos():
+    x = random.randint(0, WIDTH)
+    y = random.randint(0, HEIGHT)
+
+    pos = pygame.math.Vector2(x, y)
+
+    return pos
+
+
+def findVectorAngle(vector):
+    north = pygame.math.Vector2(0, 1)
+    angle = north.angle_to(vector)
+    return angle
+
+
+def roundVector(vector):
+    x = maths.ceil(vector.x)
+    y = maths.ceil(vector.y)
+    newVector = pygame.math.Vector2(x, y)
+    return newVector
 
 
 def createpowerup(pos):
@@ -307,12 +338,12 @@ def pausescreen(dopause):
                         allsprites.add(asteroid)
 
                     if level < 10:
-                        enemy = Enemy("enemy", [60, 70], pygame.math.Vector2(randompos()))
+                        enemy = Enemy("enemy", [60, 70], pygame.math.Vector2(random_corner_pos()))
                         allsprites.add(enemy)
                         asteroidsprites.add(enemy)
                         enemy.lives = level * 5
                     else:
-                        boss = Boss("boss", [60, 70], pygame.math.Vector2(randompos()))
+                        boss = Boss("boss", [60, 70], pygame.math.Vector2(random_corner_pos()))
                         allsprites.add(boss)
                         asteroidsprites.add(boss)
 
@@ -365,7 +396,12 @@ def gameloop(play):
         music()
 
     screen.fill(BLACK)
+    ## fancy background
+    # screen.blit(background, background.get_rect(center=(WIDTH // 2, HEIGHT // 2)))
+    ## draw fancy starscape
+    screen.blit(starscape, starscape.get_rect(center=starscape_pos))
 
+    # collision detection
     for ast in asteroidsprites:
         collisions = pygame.sprite.collide_rect(ast, player)
         if collisions:
@@ -410,10 +446,14 @@ def gameloop(play):
             player.maxSpeed += 0.1
             player.boosted = True
 
-    # torchHits = pygame.sprite.spritecollide(torch, allsprites, False)
+    # drawing stars
+    # for star_data in star_list:
+    #     # 0 is the star 1 is its randomly generated pos
+    #     screen.blit(star_data[0], star_data[1])
 
-    # for visibleSprite in torchHits:
-    #     screen.blit(visibleSprite.image, visibleSprite.rect)
+    ## planet
+    screen.blit(planet, planet.get_rect(center=planet_pos))
+
     allsprites.draw(screen)
 
     if player.endGame or len(asteroidsprites) <= 0:
@@ -501,7 +541,7 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center=self.rect.center)
 
     def move(self, keys):
-        global boosterpng
+        global boosterpng, planet_pos, starscape_pos
         self.playBoosterNoise = False
 
         self.ChangeAngle = 0
@@ -548,7 +588,7 @@ class Player(pygame.sprite.Sprite):
 
         self.unit = pygame.math.Vector2(
             [maths.cos(maths.radians(self.angle - 90)), -maths.sin(maths.radians(self.angle - 90))])
-        self.target = pygame.math.Vector2(self.pos - (600 * self.unit))
+        self.target = pygame.math.Vector2(self.pos - (1250 * self.unit))
 
         if inputType == 1:
             # keyboard input
@@ -590,7 +630,24 @@ class Player(pygame.sprite.Sprite):
         else:
             pygame.mixer.Channel(1).stop()
 
+        # move the player
         self.rect.center += pygame.math.Vector2(round(self.velocity.x), round(self.velocity.y))
+        starscape_pos -= self.velocity
+        # move the stars
+        # for star in star_list:
+        #     star[1] -= self.velocity
+        #
+        #     if star[1].x < -10:
+        #         star[1].x = WIDTH
+        #     elif star[1].x > WIDTH + 10:
+        #         star[1].x = 0
+        #
+        #     if star[1].y < -10:
+        #         star[1].y = HEIGHT
+        #     elif star[1].y > HEIGHT + 10:
+        #         star[1].y = 0
+
+        planet_pos -= self.velocity * 1.5
 
         if self.rect.centerx > WIDTH + 100:
             self.rect.centerx = -100
@@ -614,10 +671,12 @@ class Player(pygame.sprite.Sprite):
             tarVec = pygame.math.Vector2(ast.rect.center) - pygame.math.Vector2(self.rect.center)
             tarAng = abs(tarVec.angle_to(-self.unit))
             if tarAng > 20:
-                coverSize = ast.imageSize + 20
+                coverSize = ast.imageSize + 5
                 cover = pygame.Surface((coverSize, coverSize))
                 cover = pygame.transform.rotate(cover, ast.rotation)
-                cover.fill(BLACK)
+                cover.fill(ck)
+                cover.set_colorkey(ck)
+                pygame.draw.circle(cover, BLACK, (cover.get_width() // 2, cover.get_height() // 2), cover.get_width() // 2)
                 cover.set_alpha(100)
                 coverPos = ast.rect.topleft
                 screen.blit(cover, coverPos)
@@ -697,8 +756,7 @@ class Torch(pygame.sprite.Sprite):
         pygame.sprite.Sprite.__init__(self)
         self.ogImage = torchpng
         self.image = self.ogImage
-        self.rect = self.image.get_rect()
-        self.rect.center = player.target
+        self.rect = self.image.get_rect(center=player.target)
 
     def update(self):
         self.rect.center = player.target
@@ -818,32 +876,45 @@ class HomingMissile(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
 
-        self.og_image = pygame.transform.smoothscale(pygame.image.load("files/big ol bomb.png").convert_alpha(),
-                                                     (15, 15))
+        self.og_image = pygame.transform.smoothscale(pygame.image.load("files/bullet textture 2.png").convert_alpha(),
+                                                     (40, 40))
+        self.og_image = pygame.transform.flip(self.og_image, False, True)
         self.image = self.og_image
         self.rect = self.image.get_rect(center=player.rect.center)
+
+        self.angle = player.angle
+        self.changeAngle = 0
+
+        self.birthday = time.time()
 
         self.viableAsts = [a for a in asteroidsprites if a.inLight]
         if self.viableAsts:
             self.target = self.viableAsts[random.randint(0, (len(self.viableAsts) - 1))]
-            self.unit = (pygame.math.Vector2(self.target.rect.center) - pygame.math.Vector2(self.rect.center)).normalize() * 10
+            self.unit = (roundVector(
+                pygame.math.Vector2(self.target.rect.center) - pygame.math.Vector2(self.rect.center))).normalize() * 5
         else:
             self.target = None
             self.unit = pygame.math.Vector2(1, 1)
 
     def update(self):
-        if not self.target:
+        lifetime = time.time() - self.birthday
+        if not self.target or lifetime > 5:
             self.kill()
-        else:
+        elif self.target.rect.centerx in range(-100, WIDTH + 100) and self.target.rect.centery in range(-100,
+                                                                                                        HEIGHT + 100):
             self.update_vector()
-            if not (self.target.rect.centerx in range(0, WIDTH) and self.target.rect.centery in range(0, HEIGHT)):
-                self.target = None
 
-        if ((maths.floor(self.unit.x), maths.floor(self.unit.y)) == (0, 0)) or \
-                not(self.rect.centerx in range(1, WIDTH - 1) and self.rect.centery in range(1, HEIGHT - 1)):
+        self.rotate()
+
+        if not (self.rect.centerx in range(-100, WIDTH + 100) and self.rect.centery in range(-100, HEIGHT + 100)):
             self.kill()
-  
+
         self.rect.center += self.unit
+
+    def rotate(self):
+        self.angle = -findVectorAngle(self.unit)
+        self.image = pygame.transform.rotate(self.og_image, self.angle)
+        self.rect = self.image.get_rect(center=self.rect.center)
 
     def update_vector(self):
         # an alternate pathfinding method which just gets the relative vector and then makes it smaller and then gets cracking
@@ -855,35 +926,51 @@ class HomingMissile(pygame.sprite.Sprite):
         relAng = round(relVec.angle_to(self.unit))
 
         # if the vector is to the right
-        if relAng > 0:
+        if relAng > 4:
             # turn clockwise (rotate normally turns anti-clockwise so it has to be negative for clockwise)
-            self.unit.rotate_ip(-20)
+            self.unit.rotate_ip(-5)
         # the other bit
-        elif relAng < 0:
+        elif relAng < -4:
             # ip means in place, i dont know what that means but it works and rotate() doesnt
-            self.unit.rotate_ip(20)
+            self.unit.rotate_ip(5)
 
 
-class HomingMissileTwo(HomingMissile):
-    def __init__(self):
-        super().__init__()
+class OffScreenMarker(pygame.sprite.Sprite):
+    def __init__(self, _parent):
+        pygame.sprite.Sprite.__init__(self)
 
-        if self.target:
-            self.unit = (player.velocity + self.unit) // 10
+        self.og_image = pygame.transform.smoothscale(pygame.image.load('files/off_screen_marker.png').convert_alpha(),
+                                                     (20, 20))
+        self.image = self.og_image
+        self.rect = self.image.get_rect(center=(20, 20))
 
-    def update_vector(self):
-        # vector between the projectile and target (correct direction)
-        relVec = pygame.math.Vector2(self.target.rect.center) - pygame.math.Vector2(self.rect.center)
-        # the angle between the correct path and current path
-        relAng = abs(relVec.angle_to(self.unit))
+        self.parent = _parent
+        self.angle = 0
 
-        # if the vector is to the right
-        if relAng in range(1, 180):
-            # turn clockwise
-            self.unit.rotate(60)
-        # the other bit
-        elif relAng in range(181, 360):
-            self.unit.rotate(-60)
+    def update(self):
+        if self.parent.rect.centerx in range(0, WIDTH) and self.parent.rect.centery in range(0, HEIGHT):
+            self.kill()
+            self.parent.gotMarker = False
+
+        # point at the missile
+        relVec = pygame.math.Vector2(self.parent.rect.center) - pygame.math.Vector2(self.rect.center)
+        self.angle = findVectorAngle(relVec)
+
+        # be as near to its asteroid within its given boundaries as possible
+        if self.parent.rect.centerx < 0:
+            self.rect.center = (20, self.parent.rect.centery)
+        elif self.parent.rect.centery > WIDTH:
+            self.rect.center = (WIDTH - 20, self.parent.rect.centery)
+        elif self.parent.rect.centery < 0:
+            self.rect.center = (self.parent.rect.centerx, 20)
+        elif self.parent.rect.centery > HEIGHT:
+            self.rect.center = (self.parent.rect.centerx, HEIGHT - 20)
+
+        self.rotate()
+
+    def rotate(self):
+        self.image = pygame.transform.rotate(self.og_image, self.angle)
+        self.rect = self.image.get_rect(center=self.rect.center)
 
 
 class Asteroid(pygame.sprite.Sprite):
@@ -941,20 +1028,28 @@ class Asteroid(pygame.sprite.Sprite):
 
         self.inLight = False
 
+        self.gotMarker = False
+
     def update(self):
         self.rect.center += self.velocity * (level / 2)
         self.rotation += self.rotateSpeed
         self.image, self.rect = rotatezoom(self.og_image, self.rotation, self.rect.center)
 
-        if self.rect.centerx < -100:
-            self.rect.centerx = WIDTH + 100
-        elif self.rect.centerx > WIDTH + 100:
-            self.rect.centerx = -100
+        if self.rect.centerx in range(-100, WIDTH + 100) or self.rect.centery in range(-100, HEIGHT + 100):
+            if self.rect.centerx < -100:
+                self.rect.centerx = WIDTH + 100
+            elif self.rect.centerx > WIDTH + 100:
+                self.rect.centerx = -100
 
-        if self.rect.centery < -100:
-            self.rect.centery = WIDTH + 100
-        elif self.rect.centery > WIDTH + 100:
-            self.rect.centery = -100
+            if self.rect.centery < -100:
+                self.rect.centery = WIDTH + 100
+            elif self.rect.centery > WIDTH + 100:
+                self.rect.centery = -100
+
+        if not self.gotMarker and not (self.rect.centerx in range(0, WIDTH) and self.rect.centery in range(0, HEIGHT)):
+            off_screen_marker = OffScreenMarker(self)
+            allsprites.add(off_screen_marker)
+            self.gotMarker = True
 
         self.showhit()
 
@@ -1068,6 +1163,7 @@ class Enemy(Asteroid):
                                                      (60, 60))
         self.image = self.og_image
         self.rect = self.image.get_rect(center=pos)
+        self.imageSize = 60
 
         self.velocity.x = 0
         self.velocity.y = 0
@@ -1146,7 +1242,7 @@ asteroid = Asteroid(1, [dynamicresize(60), dynamicresize(120)],
 asteroidsprites.add(asteroid)
 allsprites.add(asteroid)
 
-enemy = Enemy("enemy", [180, 190], pygame.math.Vector2(randompos()))
+enemy = Enemy("enemy", [180, 190], pygame.math.Vector2(random_corner_pos()))
 asteroidsprites.add(enemy)
 allsprites.add(enemy)
 
@@ -1156,6 +1252,16 @@ torch = Torch()
 torchSprite.add(torch)
 
 hud = Hud()
+
+# making stars
+# star_list = []
+# for i in range(300):
+#     size = random.randrange(4, 8, 2)
+#     star_screen = pygame.Surface((size, size))
+#     star_screen.fill(ck)
+#     star_screen.set_colorkey(ck)
+#     pygame.draw.circle(star_screen, LIGHT_GREY, (size // 2, size // 2), size // 2)
+#     star_list.append([star_screen, randompos()])
 
 while startMenu:
     for event in pygame.event.get():
